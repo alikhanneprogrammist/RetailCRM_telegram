@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Аналитика заказов</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: rgba(17, 24, 39, 0.78);
+        --panel-2: rgba(15, 23, 42, 0.9);
+        --line: rgba(148, 163, 184, 0.18);
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --accent-2: #22c55e;
+        --accent-3: #f59e0b;
+        --danger: #ef4444;
+        --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+        --radius: 20px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 28%),
+          radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 22%),
+          linear-gradient(180deg, #020617 0%, #0b1020 100%);
+      }
+
+      .shell {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 28px;
+      }
+
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-start;
+        margin-bottom: 22px;
+      }
+
+      .hero-card {
+        flex: 1;
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.92));
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        padding: 26px;
+      }
+
+      .hero h1 {
+        margin: 0 0 10px;
+        font-size: 34px;
+        line-height: 1.15;
+        letter-spacing: -0.03em;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 720px;
+        font-size: 15px;
+        line-height: 1.65;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .chip, .control {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-size: 13px;
+      }
+
+      .control {
+        appearance: none;
+        min-width: 150px;
+        cursor: pointer;
+      }
+
+      button.control {
+        font-family: inherit;
+      }
+
+      .grid-kpi {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin: 22px 0;
+      }
+
+      .kpi {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        min-height: 130px;
+      }
+
+      .kpi-label {
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+
+      .kpi-value {
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        margin-bottom: 8px;
+      }
+
+      .kpi-note {
+        color: #cbd5e1;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 18px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(10px);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 20px 0;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 650;
+      }
+
+      .panel-subtitle {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .panel-body {
+        padding: 16px 20px 20px;
+      }
+
+      .chart-wrap {
+        height: 360px;
+      }
+
+      .chart-wrap.small {
+        height: 280px;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .list-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        border-radius: 14px;
+      }
+
+      .list-main {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .list-title {
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .list-meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        border: 1px solid rgba(96, 165, 250, 0.18);
+        background: rgba(96, 165, 250, 0.08);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        text-align: left;
+        padding: 12px 10px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        font-size: 14px;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 500;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+      }
+
+      .footer-note, .error {
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .error {
+        color: #fca5a5;
+      }
+
+      .skeleton {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .skeleton::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent);
+        animation: loading 1.2s infinite;
+      }
+
+      @keyframes loading {
+        100% { transform: translateX(100%); }
+      }
+
+      @media (max-width: 1200px) {
+        .grid-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .layout { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 760px) {
+        .shell { padding: 16px; }
+        .hero { flex-direction: column; }
+        .grid-kpi, .two-col { grid-template-columns: 1fr; }
+        .hero h1 { font-size: 28px; }
+        .chart-wrap { height: 300px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <div class="hero-card">
+          <h1>Детальная аналитика заказов</h1>
+          <p>
+            Дашборд показывает динамику по дням, структуру по статусам, каналам, оплатам, географии,
+            среднему чеку и свежим заказам. Источник данных — Supabase, агрегированный API отдаёт аналитику
+            по одной точке входа.
+          </p>
+          <div class="toolbar">
+            <div class="chip">Источник: <b>orders</b></div>
+            <div class="chip">Обновлено: <span id="lastUpdated">—</span></div>
+            <div class="chip">Синк: <span id="syncStatus">готово</span></div>
+            <select class="control" id="periodSelect">
+              <option value="30">Последние 30 дней</option>
+              <option value="90">Последние 90 дней</option>
+              <option value="180">Последние 180 дней</option>
+              <option value="365">Последний год</option>
+            </select>
+            <button class="control" id="syncButton">Синхронизировать и обновить</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid-kpi">
+        <article class="kpi">
+          <div class="kpi-label">Всего заказов</div>
+          <div class="kpi-value" id="kpiTotalOrders">—</div>
+          <div class="kpi-note" id="kpiPeriod">Период: —</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label">Выручка</div>
+          <div class="kpi-value" id="kpiRevenue">—</div>
+          <div class="kpi-note" id="kpiAvgCheck">Средний чек: —</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label">Заказы сегодня</div>
+          <div class="kpi-value" id="kpiToday">—</div>
+          <div class="kpi-note" id="kpiPeakDay">Пиковый день: —</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label">Активные статусы</div>
+          <div class="kpi-value" id="kpiStatuses">—</div>
+          <div class="kpi-note" id="kpiMainSource">Основной источник: —</div>
+        </article>
+      </section>
+
+      <section class="layout">
+        <div class="stack">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Динамика заказов и выручки</h2>
+                <div class="panel-subtitle">Основной временной ряд для оценки нагрузки и сезонности.</div>
+              </div>
+              <div class="badge" id="trendSummary">—</div>
+            </div>
+            <div class="panel-body">
+              <div class="chart-wrap"><canvas id="ordersTrendChart"></canvas></div>
+            </div>
+          </article>
+
+          <div class="two-col">
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2 class="panel-title">Распределение по статусам</h2>
+                  <div class="panel-subtitle">Показывает, где сейчас сосредоточена масса заказов.</div>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="chart-wrap small"><canvas id="statusChart"></canvas></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2 class="panel-title">Каналы привлечения</h2>
+                  <div class="panel-subtitle">Сравнение источников заказов по объёму.</div>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="chart-wrap small"><canvas id="sourceChart"></canvas></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="two-col">
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2 class="panel-title">Типы оплаты</h2>
+                  <div class="panel-subtitle">Какие способы оплаты реально используются.</div>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="chart-wrap small"><canvas id="paymentChart"></canvas></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2 class="panel-title">Топ стран / регионов</h2>
+                  <div class="panel-subtitle">География заказов по числу покупок.</div>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div id="topCountriesList" class="list"></div>
+              </div>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Последние заказы</h2>
+                <div class="panel-subtitle">Оперативный срез по последним записям из таблицы orders.</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div style="overflow:auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>№ заказа</th>
+                      <th>Клиент</th>
+                      <th>Товар</th>
+                      <th>Статус</th>
+                      <th>Оплата</th>
+                      <th>Сумма</th>
+                      <th>Дата</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentOrdersBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <aside class="stack">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Ключевые выводы</h2>
+                <div class="panel-subtitle">Автоматическая краткая интерпретация текущей картины.</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="insightsList" class="list"></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Статусы по объёму</h2>
+                <div class="panel-subtitle">Быстрый ранжированный список без графика.</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="statusList" class="list"></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Товары / позиции</h2>
+                <div class="panel-subtitle">Какие наименования чаще всего встречаются в заказах.</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="topProductsList" class="list"></div>
+            </div>
+          </article>
+        </aside>
+      </section>
+
+      <div id="error" class="error"></div>
+      <div class="footer-note">
+        Для этого интерфейса ожидается endpoint <b>/api/orders-analytics?days=30</b>, который отдаёт все агрегаты одним JSON.
+      </div>
+    </div>
+
+    <script>
+      const charts = {};
+
+      function formatNumber(value) {
+        return new Intl.NumberFormat("ru-RU").format(Number(value || 0));
+      }
+
+      function formatMoney(value) {
+        return new Intl.NumberFormat("ru-RU", {
+          style: "currency",
+          currency: "KZT",
+          maximumFractionDigits: 0
+        }).format(Number(value || 0));
+      }
+
+      function formatDate(date) {
+        if (!date) return "—";
+        return new Date(date).toLocaleDateString("ru-RU");
+      }
+
+      function destroyChart(key) {
+        if (charts[key]) {
+          charts[key].destroy();
+          charts[key] = null;
+        }
+      }
+
+      function buildChart(id, key, config) {
+        destroyChart(key);
+        const canvas = document.getElementById(id);
+        charts[key] = new Chart(canvas, config);
+      }
+
+      function pickTopLabel(items) {
+        if (!Array.isArray(items) || items.length === 0) return "нет данных";
+        const top = items[0];
+        return `${top.label || top.name || "—"} (${formatNumber(top.count || 0)})`;
+      }
+
+      function renderKpi(data) {
+        document.getElementById("kpiTotalOrders").textContent = formatNumber(data.summary.totalOrders);
+        document.getElementById("kpiRevenue").textContent = formatMoney(data.summary.totalRevenue);
+        document.getElementById("kpiToday").textContent = formatNumber(data.summary.todayOrders);
+        document.getElementById("kpiStatuses").textContent = formatNumber(data.summary.statusCount);
+
+        const periodText = data.summary.startDate && data.summary.endDate
+          ? `${data.summary.startDate} — ${data.summary.endDate}`
+          : "нет данных";
+
+        document.getElementById("kpiPeriod").textContent = `Период: ${periodText}`;
+        document.getElementById("kpiAvgCheck").textContent = `Средний чек: ${formatMoney(data.summary.avgCheck)}`;
+        document.getElementById("kpiPeakDay").textContent = `Пиковый день: ${data.summary.peakDay || "нет данных"}`;
+        document.getElementById("kpiMainSource").textContent = `Основной источник: ${pickTopLabel(data.sources)}`;
+        document.getElementById("lastUpdated").textContent = data.summary.generatedAt || new Date().toLocaleString("ru-RU");
+        document.getElementById("trendSummary").textContent = data.summary.growthText || "динамика рассчитана";
+      }
+
+      function renderTrendChart(data) {
+        const labels = data.timeline.map(item => item.date);
+        const orders = data.timeline.map(item => item.orders);
+        const revenue = data.timeline.map(item => item.revenue);
+
+        buildChart("ordersTrendChart", "ordersTrendChart", {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Заказы",
+                data: orders,
+                borderColor: "#60a5fa",
+                backgroundColor: "rgba(96, 165, 250, 0.16)",
+                fill: true,
+                tension: 0.28,
+                borderWidth: 2,
+                yAxisID: "y"
+              },
+              {
+                label: "Выручка",
+                data: revenue,
+                borderColor: "#22c55e",
+                backgroundColor: "rgba(34, 197, 94, 0.12)",
+                fill: false,
+                tension: 0.28,
+                borderWidth: 2,
+                yAxisID: "y1"
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: { labels: { color: "#e5e7eb" } }
+            },
+            scales: {
+              x: {
+                ticks: { color: "#94a3b8" },
+                grid: { color: "rgba(148, 163, 184, 0.08)" }
+              },
+              y: {
+                beginAtZero: true,
+                ticks: { color: "#94a3b8", precision: 0 },
+                grid: { color: "rgba(148, 163, 184, 0.08)" }
+              },
+              y1: {
+                position: "right",
+                beginAtZero: true,
+                ticks: { color: "#94a3b8" },
+                grid: { drawOnChartArea: false }
+              }
+            }
+          }
+        });
+      }
+
+      function renderBarOrDoughnut() {
+        buildChart("statusChart", "statusChart", {
+          type: "doughnut",
+          data: {
+            labels: currentData.statuses.map(item => item.label),
+            datasets: [{
+              data: currentData.statuses.map(item => item.count),
+              backgroundColor: ["#60a5fa", "#22c55e", "#f59e0b", "#ef4444", "#a78bfa", "#14b8a6", "#f472b6"]
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: "#e5e7eb" } } }
+          }
+        });
+
+        buildChart("sourceChart", "sourceChart", {
+          type: "bar",
+          data: {
+            labels: currentData.sources.map(item => item.label),
+            datasets: [{
+              label: "Заказы",
+              data: currentData.sources.map(item => item.count),
+              backgroundColor: "rgba(96, 165, 250, 0.7)",
+              borderRadius: 10
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { color: "#94a3b8" }, grid: { display: false } },
+              y: { beginAtZero: true, ticks: { color: "#94a3b8", precision: 0 }, grid: { color: "rgba(148, 163, 184, 0.08)" } }
+            }
+          }
+        });
+
+        buildChart("paymentChart", "paymentChart", {
+          type: "bar",
+          data: {
+            labels: currentData.payments.map(item => item.label),
+            datasets: [{
+              label: "Оплаты",
+              data: currentData.payments.map(item => item.count),
+              backgroundColor: "rgba(34, 197, 94, 0.7)",
+              borderRadius: 10
+            }]
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, ticks: { color: "#94a3b8", precision: 0 }, grid: { color: "rgba(148, 163, 184, 0.08)" } },
+              y: { ticks: { color: "#94a3b8" }, grid: { display: false } }
+            }
+          }
+        });
+      }
+
+      function renderList(containerId, items, metaBuilder) {
+        const container = document.getElementById(containerId);
+        if (!items || items.length === 0) {
+          container.innerHTML = '<div class="list-item"><div class="list-main"><div class="list-title">Нет данных</div></div></div>';
+          return;
+        }
+
+        container.innerHTML = items.map((item, index) => `
+          <div class="list-item">
+            <div class="list-main">
+              <div class="list-title">${index + 1}. ${item.label || item.name || "—"}</div>
+              <div class="list-meta">${metaBuilder(item)}</div>
+            </div>
+            <div class="badge">${formatNumber(item.count || 0)}</div>
+          </div>
+        `).join("");
+      }
+
+      function renderRecentOrders(data) {
+        const body = document.getElementById("recentOrdersBody");
+        if (!data.recentOrders || data.recentOrders.length === 0) {
+          body.innerHTML = '<tr><td colspan="7">Нет данных</td></tr>';
+          return;
+        }
+
+        body.innerHTML = data.recentOrders.map(order => `
+          <tr>
+            <td>${order.order_number || "—"}</td>
+            <td>${[order.first_name, order.last_name].filter(Boolean).join(" ") || order.phone || "—"}</td>
+            <td>${order.product_name || "—"}</td>
+            <td><span class="status-pill">${order.order_status || "—"}</span></td>
+            <td>${order.payment_type || "—"}</td>
+            <td>${formatMoney(order.total_sum)}</td>
+            <td>${formatDate(order.synced_at || order.updated_at || order.created_at)}</td>
+          </tr>
+        `).join("");
+      }
+
+      function renderInsights(data) {
+        const items = [];
+        if (data.summary.totalOrders) {
+          items.push({
+            label: "Общий объём",
+            text: `За выбранный период зафиксировано ${formatNumber(data.summary.totalOrders)} заказов на сумму ${formatMoney(data.summary.totalRevenue)}.`
+          });
+        }
+        if (data.statuses?.[0]) {
+          items.push({
+            label: "Доминирующий статус",
+            text: `На первом месте статус «${data.statuses[0].label}» — ${formatNumber(data.statuses[0].count)} заказов.`
+          });
+        }
+        if (data.sources?.[0]) {
+          items.push({
+            label: "Главный канал",
+            text: `Основной источник заказов — «${data.sources[0].label}», он даёт ${formatNumber(data.sources[0].count)} заказов.`
+          });
+        }
+        if (data.payments?.[0]) {
+          items.push({
+            label: "Оплата",
+            text: `Наиболее популярный способ оплаты — «${data.payments[0].label}».`
+          });
+        }
+        if (data.summary.peakDay) {
+          items.push({
+            label: "Пиковая нагрузка",
+            text: `Наибольшая активность была в день ${data.summary.peakDay}. Это полезно для планирования нагрузки.`
+          });
+        }
+
+        const container = document.getElementById("insightsList");
+        container.innerHTML = items.map(item => `
+          <div class="list-item">
+            <div class="list-main">
+              <div class="list-title">${item.label}</div>
+              <div class="list-meta" style="white-space: normal; line-height: 1.6;">${item.text}</div>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      let currentData = null;
+      let syncInProgress = false;
+
+      function setSyncUiState(inProgress, statusText) {
+        syncInProgress = inProgress;
+        const syncButton = document.getElementById("syncButton");
+        const syncStatus = document.getElementById("syncStatus");
+        syncButton.disabled = inProgress;
+        syncButton.textContent = inProgress ? "Синхронизация..." : "Синхронизировать и обновить";
+        if (statusText) {
+          syncStatus.textContent = statusText;
+        }
+      }
+
+      async function loadAnalytics() {
+        const days = document.getElementById("periodSelect").value;
+        const errorEl = document.getElementById("error");
+        errorEl.textContent = "";
+
+        try {
+          const response = await fetch(`/api/orders-analytics?days=${days}`);
+          if (!response.ok) {
+            throw new Error("Не удалось получить данные аналитики");
+          }
+
+          const data = await response.json();
+          currentData = data;
+
+          renderKpi(data);
+          renderTrendChart(data);
+          renderBarOrDoughnut();
+          renderList("statusList", data.statuses, item => `Доля: ${item.share || 0}%`);
+          renderList("topCountriesList", data.countries, item => `Выручка: ${formatMoney(item.revenue || 0)}`);
+          renderList("topProductsList", data.products, item => `Выручка: ${formatMoney(item.revenue || 0)}`);
+          renderRecentOrders(data);
+          renderInsights(data);
+        } catch (error) {
+          errorEl.textContent = "Ошибка: " + (error.message || "неизвестная ошибка");
+        }
+      }
+
+      async function syncAndRefresh() {
+        const errorEl = document.getElementById("error");
+        errorEl.textContent = "";
+        setSyncUiState(true, "выполняется");
+        try {
+          const response = await fetch("/api/sync-and-refresh", {
+            method: "POST"
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload?.error || "Не удалось запустить синхронизацию");
+          }
+          setSyncUiState(false, "успешно");
+          await loadAnalytics();
+        } catch (error) {
+          setSyncUiState(false, "ошибка");
+          errorEl.textContent = "Ошибка синхронизации: " + (error.message || "неизвестная ошибка");
+        }
+      }
+
+      document.getElementById("periodSelect").addEventListener("change", loadAnalytics);
+      document.getElementById("syncButton").addEventListener("click", () => {
+        if (!syncInProgress) {
+          syncAndRefresh();
+        }
+      });
+      loadAnalytics();
+    </script>
+  </body>
+</html>

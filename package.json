@@ -1,0 +1,11 @@
+{
+    "scripts": {
+        "sync": "node sync-orders.js",
+        "dashboard": "node dashboard-server.js",
+        "etl:marts": "node etl-marts.js"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.103.0",
+        "dotenv": "^17.4.1"
+    }
+}
