@@ -10,14 +10,19 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PORT = Number(process.env.PORT || 3000);
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Не заполнены SUPABASE_URL или SUPABASE_SERVICE_ROLE_KEY в .env");
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const dashboardPath = path.join(__dirname, "orders-dashboard.html");
 let syncJobInProgress = false;
+
+let supabase = null;
+function getSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Не заданы SUPABASE_URL или SUPABASE_SERVICE_ROLE_KEY");
+  }
+  if (!supabase) {
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  }
+  return supabase;
+}
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
@@ -175,12 +180,13 @@ function percentChange(current, previous) {
 }
 
 async function getOrders(days) {
+  const sb = getSupabase();
   const from = new Date();
   from.setHours(0, 0, 0, 0);
   from.setDate(from.getDate() - (days - 1));
   const fromIso = from.toISOString();
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("orders")
     .select("*")
     .gte("synced_at", fromIso)
