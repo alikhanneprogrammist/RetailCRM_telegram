@@ -298,7 +298,11 @@ async function syncOrders() {
   console.log("Sync завершён");
 }
 
-syncOrders().catch((err) => {
-  console.error("Критическая ошибка:", err.message || err);
-  process.exit(1);
-});
+module.exports = { syncOrders };
+
+if (require.main === module) {
+  syncOrders().catch((err) => {
+    console.error("Критическая ошибка:", err.message || err);
+    process.exit(1);
+  });
+}

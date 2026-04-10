@@ -761,7 +761,6 @@
 
       let currentData = null;
       let syncInProgress = false;
-      const isVercelHost = typeof window !== "undefined" && window.location.hostname.includes("vercel.app");
 
       function setSyncUiState(inProgress, statusText) {
         syncInProgress = inProgress;
@@ -804,20 +803,12 @@
       async function syncAndRefresh() {
         const errorEl = document.getElementById("error");
         errorEl.textContent = "";
-        if (isVercelHost) {
-          setSyncUiState(false, "недоступно на Vercel");
-          return;
-        }
         setSyncUiState(true, "выполняется");
         try {
           const response = await fetch("/api/sync-and-refresh", {
             method: "POST"
           });
           const payload = await response.json();
-          if (response.status === 501) {
-            setSyncUiState(false, "недоступно на Vercel");
-            return;
-          }
           if (!response.ok) {
             throw new Error(payload?.error || "Не удалось запустить синхронизацию");
           }
@@ -830,12 +821,6 @@
       }
 
       document.getElementById("periodSelect").addEventListener("change", loadAnalytics);
-      if (isVercelHost) {
-        const syncButton = document.getElementById("syncButton");
-        syncButton.disabled = true;
-        syncButton.title = "На Vercel синхронизация отключена";
-        setSyncUiState(false, "недоступно на Vercel");
-      }
       document.getElementById("syncButton").addEventListener("click", () => {
         if (!syncInProgress) {
           syncAndRefresh();

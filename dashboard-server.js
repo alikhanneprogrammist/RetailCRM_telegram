@@ -2,7 +2,6 @@ require("dotenv").config();
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
 const { URL } = require("url");
 const { createClient } = require("@supabase/supabase-js");
 
@@ -40,47 +39,11 @@ function sendHtml(res, filePath) {
   });
 }
 
-function runNodeScript(scriptFile) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [scriptFile], {
-      cwd: __dirname,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      process.stdout.write(`[${scriptFile}] ${text}`);
-    });
-
-    child.stderr.on("data", (chunk) => {
-      const text = chunk.toString();
-      stderr += text;
-      process.stderr.write(`[${scriptFile}] ${text}`);
-    });
-
-    child.on("error", (error) => reject(error));
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
-      reject(new Error(`Скрипт ${scriptFile} завершился с кодом ${code}`));
-    });
-  });
-}
-
 async function runSyncAndRefresh() {
-  if (process.env.VERCEL) {
-    throw new Error("Синхронизация через sync-orders.js недоступна на Vercel. Запускайте sync и etl отдельно (cron/worker/локально).");
-  }
-  await runNodeScript("sync-orders.js");
-  await runNodeScript("etl-marts.js");
+  const { syncOrders } = require("./sync-orders");
+  const { runEtlMarts } = require("./etl-marts");
+  await syncOrders();
+  await runEtlMarts();
 }
 
 function toNumber(value) {
@@ -290,11 +253,6 @@ async function requestHandler(req, res) {
     }
 
     if (reqUrl.pathname === "/api/orders-analytics" && req.method === "GET") {
-      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-        return sendJson(res, 500, {
-          error: "Не заданы переменные окружения SUPABASE_URL и/или SUPABASE_SERVICE_ROLE_KEY в настройках Vercel.",
-        });
-      }
       const daysParam = Number(reqUrl.searchParams.get("days") || 30);
       const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30;
 
@@ -303,13 +261,6 @@ async function requestHandler(req, res) {
     }
 
     if (reqUrl.pathname === "/api/sync-and-refresh" && req.method === "POST") {
-      if (process.env.VERCEL) {
-        return sendJson(res, 501, {
-          error:
-            "На Vercel этот endpoint отключен: long-running sync/etl должен выполняться вне serverless (cron/worker/локально).",
-        });
-      }
-
       if (syncJobInProgress) {
         return sendJson(res, 409, { error: "Синхронизация уже выполняется" });
       }

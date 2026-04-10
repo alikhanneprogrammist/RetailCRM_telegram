@@ -460,7 +460,11 @@ async function run() {
   console.log("ETL marts: успешно завершен");
 }
 
-run().catch((error) => {
-  console.error("ETL marts: ошибка", error.message || error);
-  process.exit(1);
-});
+module.exports = { runEtlMarts: run };
+
+if (require.main === module) {
+  run().catch((error) => {
+    console.error("ETL marts: ошибка", error.message || error);
+    process.exit(1);
+  });
+}
