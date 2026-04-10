@@ -272,9 +272,9 @@ async function buildAnalytics(days) {
   };
 }
 
-const server = http.createServer(async (req, res) => {
+async function requestHandler(req, res) {
   try {
-    const reqUrl = new URL(req.url, `http://${req.headers.host}`);
+    const reqUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
 
     if (reqUrl.pathname === "/") {
       return sendHtml(res, dashboardPath);
@@ -317,8 +317,13 @@ const server = http.createServer(async (req, res) => {
       error: error.message || "Внутренняя ошибка сервера",
     });
   }
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`Dashboard запущен: http://localhost:${PORT}`);
-});
+module.exports = requestHandler;
+
+if (!process.env.VERCEL) {
+  const server = http.createServer(requestHandler);
+  server.listen(PORT, () => {
+    console.log(`Dashboard запущен: http://localhost:${PORT}`);
+  });
+}
