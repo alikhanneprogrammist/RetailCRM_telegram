@@ -76,6 +76,9 @@ function runNodeScript(scriptFile) {
 }
 
 async function runSyncAndRefresh() {
+  if (process.env.VERCEL) {
+    throw new Error("Синхронизация через sync-orders.js недоступна на Vercel. Запускайте sync и etl отдельно (cron/worker/локально).");
+  }
   await runNodeScript("sync-orders.js");
   await runNodeScript("etl-marts.js");
 }
@@ -287,6 +290,11 @@ async function requestHandler(req, res) {
     }
 
     if (reqUrl.pathname === "/api/orders-analytics" && req.method === "GET") {
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        return sendJson(res, 500, {
+          error: "Не заданы переменные окружения SUPABASE_URL и/или SUPABASE_SERVICE_ROLE_KEY в настройках Vercel.",
+        });
+      }
       const daysParam = Number(reqUrl.searchParams.get("days") || 30);
       const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30;
 
@@ -295,6 +303,13 @@ async function requestHandler(req, res) {
     }
 
     if (reqUrl.pathname === "/api/sync-and-refresh" && req.method === "POST") {
+      if (process.env.VERCEL) {
+        return sendJson(res, 501, {
+          error:
+            "На Vercel этот endpoint отключен: long-running sync/etl должен выполняться вне serverless (cron/worker/локально).",
+        });
+      }
+
       if (syncJobInProgress) {
         return sendJson(res, 409, { error: "Синхронизация уже выполняется" });
       }
